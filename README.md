@@ -31,8 +31,3 @@ Es necesario que:
 ## Contenedores
 * Seleccionar "gestión de contenedores" y seleccionar alguna de las opciones del menú.
 * Recomendable listar los contenedores previamente.
-
-## Enlaces de interés
-* [Reemplazar contenedor por nueva instancia](knowledge-base/1.0.0_fba_reemplazar_contenedor)
-* [Construir desde imágenes base](knowledge-base/1.0.0_fba_proyectos_imagenes_base)
-* [Acceder vía IP a los contenedores](knowledge-base/1.0.0_fba_como_acceder_via_ip_contenedores.md)
