@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# configurar el punto de entrada del proyecto
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+# precargar funciones comunes
+source "$DIR/src/helper-functions"
+source "$DIR/src/repository-functions"
+source "$DIR/src/app-functions"
+
+# comprobar que el dominio de docker está activo
+mainApp

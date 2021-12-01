@@ -1,0 +1,197 @@
+#!/bin/bash
+
+function gotoLocalRecipes() {
+    cd $DIR/recipes/local;
+}
+
+function gotoRemoteRecipes() {
+    cd $DIR/recipes/remote;
+}
+
+# lista los directorios de recetas
+function getRecipeList() { 
+
+    echo -e "Recetas [LOCAL]: \n" && prettyPrintPath "$DIR/recipes/local"
+    echo -e "\n"
+    echo -e "Recetas [REMOTO]: \n" && prettyPrintPath "$DIR/recipes/remote"
+    echo -e "\n"
+    cd $DIR;
+
+}
+
+# comprueba si existe el dockerfile
+function dockerfileByPathExists() {
+    dockerRemoteProjectPath=$1
+    if [[ -f $dockerRemoteProjectPath/Dockerfile ]]; then
+        echo -e "El Dockerfile existe por lo que no será necesario crear uno para construir la imagen\n"
+    else
+        # crear un dockerfile vacío
+        echo -e "\nNo se encuentra Dockerfile, procediendo a crearlo. Tienes que definirlo a mano o copiar su contenido desde el directorio donde se ha almacenado en el proyecto remoto\n"
+        touch $dockerRemoteProjectPath/Dockerfile
+    fi
+}
+
+# crea un directorio de receta
+function createRecipe() {
+
+    echo -e "-- Construir recetas para imágenes -- \n"
+
+    notValidatedName=true
+    while $notValidatedName; do
+        read -p "¿Cuál es el nombre de la receta (sin espacios, recomendable que coincida con el nombre del proyecto o repositorio)? `echo $'\n> '`" recipeName
+        if [[ $recipeName != "" ]]; then
+            notValidatedName=false
+        else
+            echo -e "Debes indicar un nombre válido para continuar"
+        fi
+    done
+
+    # reinciar para no afectar al programa cuando se relance
+    notValidatedName=true
+
+    # comprobar si el proyecto es local o remoto
+    while true; do
+        read -p "¿El proyecto depende de un repositorio remoto (s/n)? `echo $'\n> '`" isRemoteChoice
+        case "$isRemoteChoice" in 
+            s|S ) 
+
+                # esta opción no crea ni dockerfile ni docker-compose porque se asume que proviene del repositorio remoto
+                recipeDirectoryChoice="remote"
+                echo -e "Haz seleccionado un repositorio remoto por lo que tendrás que asignar un repositorio al proyecto \n"
+                break
+                ;;
+            
+            n|N )
+
+                # esta opción obliga a crear un dockerfile y pregunta lo del docker-compose
+                recipeDirectoryChoice="local"
+                echo -e "Sólo se creará el proyecto a nivel local sin asignar a un repositorio remoto \n"
+                break
+                ;;
+                
+            * ) 
+                echo -e "Debe seleccionar una opción válida"
+                ;;
+        esac
+    done
+
+    # comprobar si existe el proyecto
+    if [[ -d "$DIR/recipes/$recipeDirectoryChoice/$recipeName" ]]; then
+        recipeNameAlreadyExists=true
+        # si existe, obligar a indicar un partido válido
+        while $recipeNameAlreadyExists; do
+            read -p "Ya existe una receta con el mismo nombre... Indica otro nombre `echo $'\n> '`" recipeName
+            # comprobar si existe el proyecto
+            if [[ ! -d "$DIR/recipes/$recipeDirectoryChoice/$recipeName" ]]; then
+                recipeNameAlreadyExists=false
+            fi
+        done
+    fi
+
+    # dedicir si crear el directorio o bien descargarlo desde un repositorio remoto
+    if [[ "$isRemoteChoice" == "s" || "$isRemoteChoice" == "S" ]]; then
+
+        # descargar cambios desde repositorio remoto
+        downloadRemoteRepository $recipeName
+
+        # comprobar si existe un dockerfile para el proyecto descargado
+        dockerfileByPathExists $DIR/recipes/remote/$project
+
+    else
+
+        # crear la estructura principal
+        cd "$DIR/recipes/$recipeDirectoryChoice" && mkdir $recipeName && cd "$DIR/recipes/$recipeDirectoryChoice/$recipeName" && touch Dockerfile
+
+        # comprobar si necesita un docker-compose
+        read -p "La receta necesita un docker-compose.yml (s/n)? `echo $'\n> '`" recipeComposeChoice
+        while true; do
+            case "$recipeComposeChoice" in 
+                s|S ) 
+                    echo -e "Creando archivo docker-compose.yml...\n" && touch "docker-compose.yml" && break;;                 
+                n|N ) 
+                    echo -e "Ok, no necesitas un docker-compose.yml aunque podrás crearlo de forma manual si lo necesitas \n" && break;;
+                * ) 
+                    echo -e "Debe seleccionar una opción válida";;
+            esac
+        done
+    fi
+
+}
+
+# eliminar una receta
+function deleteRecipe() {
+    
+    # listando las imágenes de receta
+    # ls -l "$DIR/recipes" | grep "^d"
+    getRecipeList
+
+    # comprobar si es una receta remota o local
+    read -p "¿Es una receta local o una receta remota (s/n)? `echo $'\n> '`" isRemoteChoice
+    while true; do
+        case "$isRemoteChoice" in 
+            s|S ) 
+
+                recipeDirectoryChoice="remote"
+                break
+                ;;
+
+            n|N ) 
+
+                recipeDirectoryChoice="local"
+                break
+                ;;
+
+            * ) 
+                echo -e "Debe seleccionar una opción válida";;
+        esac
+    done
+
+    # requerir el nombre de la receta a eliminar una vez conocemos el directorio (local o remoto)
+    read -p "Indicar el nombre de la receta a eliminar `echo $'\n> '`" recipeDelete
+
+    if [[ ! -d "$DIR/recipes/$recipeDirectoryChoice/$recipeDelete" ]]; then
+        recipeNotExists=true
+        # si existe, obligar a indicar un partido válido
+        while $recipeNotExists; do
+            read -p "La receta indicada no existe, indica otrotro nombre `echo $'\n> '`" recipeDelete
+            # comprobar si existe el proyecto
+            if [[ ! -d "$DIR/recipes/$recipeDirectoryChoice/$recipeDelete" ]]; then
+                recipeNotExists=false
+            fi
+        done
+    fi
+
+    # eliminar receta
+    rm -rf "$DIR/recipes/$recipeDirectoryChoice/$recipeDelete"
+    
+}
+
+# menú principal de recetas
+function menuRecipes() {
+
+    cleanScreen && echo -e "-- Seleccionar una opción -- \n"
+    while true; do
+
+        createMenuWithInputOperand "1) Listar receta\n2) Crear recetas\n3) Eliminar receta\n\n-- Pulsa 0 para volver a atrás --"
+        
+        # después de createMenu se crea la variable GLOBAL_INPUT_OPERAND
+        case $GLOBAL_INPUT_OPERAND in
+            [0]* )
+                # volver al menú principal
+                cleanScreen && break;;
+            [1]* )
+                getRecipeList
+                ;;
+            [2]* )
+                createRecipe
+                ;;
+            [3]* )
+                deleteRecipe
+                ;;
+            * )
+                echo -e "Seleccionar una opción válida...";;
+        esac
+
+    done
+
+}

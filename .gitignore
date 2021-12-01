@@ -1,0 +1,20 @@
+.gitmodules
+
+keys/**
+!keys/.gitkeep
+
+examples/**
+!examples/.gitkeep
+
+recipes/local/*
+!recipes/local/.gitkeep
+recipes/remote/*
+!recipes/remote/.gitkeep
+
+**/ssl/*
+!**/ssl/.gitkeep
+
+# temporal
+knowledge-base/*
+!knowledge-base/.gitkeep
+deploys.md

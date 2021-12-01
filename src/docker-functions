@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# detecta si el demonio de docker se ha lanzado
+function isDockerEnable() {
+    # asumimos que está activo
+    GLOBAL_DOCKER_ENABLE=true;
+    if ! docker info >/dev/null 2>&1; then
+        # docker no está iniciado...
+        cleanScreen && echo -e "ERROR!! Parece que Docker no está funcionando... Lo necesitas para continuar :D \n\n"
+        GLOBAL_DOCKER_ENABLE=false
+    fi
+}
+
+# lista las imágenes docker disponibles
+function getDockerImagesList() {
+    docker images
+}
+
+# listar contenedores
+function getDockerContainersList() {
+    docker ps -a && echo -e "\n"
+}
+
+# devuelve la lista de contenedores activos
+function getDockerContainerListActive() {
+    docker ps && echo -e "\n"
+}

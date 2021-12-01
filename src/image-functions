@@ -1,0 +1,162 @@
+#!/bin/bash
+
+function badPathDefinitionToBuildImageMessage() {
+    echo -e "El directorio $1 no existe. Para crear una imagen desde una receta debes indicar la ubicación correcta ($DIR/{remote(s)|local(n)}/{nombreDirectorioReceta})\n"
+}
+
+# construye la imagen docker desde un directorio
+function buildImageFromDirectory() {
+    cd $1 && docker build --tag $GLOBAL_IMAGE_NAME:$GLOBAL_IMAGE_VERSION -f Dockerfile .
+    # devolver siempre el control al proyecto siempre que se haga un cambio de directorio
+    cd $DIR
+}
+
+# define como variables globales el nombre de la imagen y la versión
+function defineVersionAndNameFromImage() {
+
+    GLOBAL_IMAGE_NAME=""
+    GLOBAL_IMAGE_VERSION=""
+
+    imageVersionProjectNotDefined=true
+    
+    # si existe, obligar a indicar un partido válido
+    while $imageVersionProjectNotDefined; do
+        if [[ "$GLOBAL_IMAGE_NAME" != "" && "$GLOBAL_IMAGE_VERSION" != "" ]]; then
+
+            # si se han completado ambos campos, puede continuar
+            imageVersionProjectNotDefined=false
+
+        else
+
+            # versión y nombre del proyecto
+            read -p "Definir el nombre de la imagen (sin espacios ni caracteres especiales, solo guiones) `echo $'\n> '`" GLOBAL_IMAGE_NAME
+            read -p "Versión de la imagen (respetar el formato X.Y.Z) `echo $'\n> '`" GLOBAL_IMAGE_VERSION
+
+        fi
+    done
+
+    # reiniciar variables por si se vuelve a lanzar
+    imageVersionProjectNotDefined=true
+
+}
+
+# construye la imagen desde una receta local
+function localImageBuildByDockerfile() {
+
+    # comprobar que el path se construyó correctamente
+    directoryRecipe=$1
+    if [[ ! -d $directoryRecipe ]]; then
+        badPathDefinitionToBuildImageMessage $directoryRecipe
+    else
+        # recoger los datos de versión y nombre
+        defineVersionAndNameFromImage
+
+        # construir la imagen
+        buildImageFromDirectory $directoryRecipe
+        echo -e "hasta aquí la traza de la construcción de imagen... \n\n"
+
+    fi
+
+}
+
+# construye imagen desde la receta en colaboración con el repositorio remoto mediante la versión de la imagen
+function remoteImageBuildWithVersionDependency() {
+
+    # comprobar que el path se construyó correctamente
+    directoryRecipe=$1
+    if [[ ! -d $directoryRecipe ]]; then
+        badPathDefinitionToBuildImageMessage $directoryRecipe
+    else
+
+        # definir el nombre de la imagen y la versión
+        defineVersionAndNameFromImage
+
+        # comprobar la etiqueta
+        cd $directoryRecipe && echo -e "Generando el contenedor de la version ${GLOBAL_IMAGE_VERSION} \n";
+
+        # actualizar el contenido a partir de la versión del repositorio
+        fetchRepositoryTag $GLOBAL_IMAGE_VERSION
+
+        # construir la imagen
+        buildImageFromDirectory $directoryRecipe
+
+        echo -e "hasta aquí la traza de la construcción de imagen... \n\n"
+
+    fi
+
+}
+
+# crea una imagen desde una receta
+function createImageFromRecipe() {
+
+    # preguntar si es una receta local o remota
+    while true; do
+        read -p "Se construye desde una receta de repositorio remoto (s/n)? `echo $'\n> '`" recipeIsRemoteChoice
+        case "$recipeIsRemoteChoice" in 
+            s|S )
+                break;;
+            n|N )
+                break;;
+            * )
+                echo -e "Debe seleccionar una opción válida (s/n)..."
+                ;;
+        esac
+    done
+
+    # preguntar el nombre de la receta (no dejar salir hasta que se complete esta acción)
+    noValueDirectoryNameRecipe=true
+    while $noValueDirectoryNameRecipe; do
+        read -p "Indicar el nombre del directorio de la receta `echo $'\n> '`" directoryNameRecipe
+        if [[ $directoryNameRecipe != "" ]]; then
+            noValueDirectoryNameRecipe=false
+        else
+            echo -e "Debes un nombre de proyecto válido..."
+        fi
+    done
+
+    # reinciar por si se vuelve a lanzar el programa
+    noValueDirectoryNameRecipe=true
+
+    # construir la imagen desde el directorio local o remoto (según se indique)
+    if [[ $recipeIsRemoteChoice == "s" || $recipeIsRemoteChoice == "S" ]]; then
+        # construir el path completo de la receta para construirla en colaboración con el repositorio remoto
+        remoteImageBuildWithVersionDependency "$DIR/recipes/remote/$directoryNameRecipe"
+    else
+        # construir el path completo de la receta para construirla desde el Dockerfile del directorio local
+        localImageBuildByDockerfile "$DIR/recipes/local/$directoryNameRecipe"
+    fi
+
+}
+
+# menú principal para gestionar imágenes
+function imagesMain() {
+
+    echo -e "-- Seleccionar una opción --\n"
+
+    while true; do
+        
+        createMenuWithInputOperand "1) Listar imágenes\n2) Construir imagen\n3) Subir imagen a Docker HUB \n\n-- Pulsa 0 para salir del programa --"
+
+        # después de createMenu se crea la variable GLOBAL_INPUT_OPERAND
+        case $GLOBAL_INPUT_OPERAND in
+            [0]* )
+                echo -e "Limpiar pantalla y salir..." && cleanScreen && break
+                ;;
+            [1]* )
+                # lista las imágenes docker creadas
+                cleanScreen && getDockerImagesList && echo -e "\n"
+                ;;
+            [2]* )
+                createImageFromRecipe && break
+                ;;
+            [3]* )
+                echo -e "Esta opción no está habilitada por ahora..."
+                ;;
+            * )
+                echo -e "Seleccionar una opción válida..."
+                ;;
+        esac
+
+    done
+
+}

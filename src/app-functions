@@ -1,0 +1,112 @@
+#!/bin/bash
+
+# imprime el título :D
+function titleScreen() { 
+    echo -e "~~~~~~~~~~~~~~~~~~~~~\n  Docker-CLI  \n~~~~~~~~~~~~~~~~~~~~~\n"; 
+}
+
+# instalación y configuración del servidor
+function installDependencies() {
+    
+    # instalar requisitos del proyecto
+    # instalar las dependencias de los contenedores en el servidor
+    # instalándolas desde fuera del contenedor no las instalamos siempre en cada imagen
+
+    # update
+    apt-get update && apt-get upgrade
+
+    # dependencies
+    apt install docker.io
+    apt install zip
+    
+    sudo apt install php7.4-cli
+    sudo apt install php-mbstring
+    sudo apt install php-dom
+    sudo apt install php-gd
+    sudo apt install php-zip
+
+    # composer
+    curl -sS https://getcomposer.org/installer -o composer-setup.php
+    php composer-setup.php --install-dir=/usr/local/bin --filename=composer 
+    rm composer-setup.php
+
+}
+
+# comprobar que el servidor está basado en debian para instalar las dependencias
+function isServerBasedDebianAndInstallDependencies() {
+    if [ "$(uname -a | grep -Ei 'debian|buntu|mint')" ]; then
+        # installDependencies
+        cleanScreen && echo -e "ERROR!! Se ha deshabilitado la instalación de dependencias en el servidor... \n\n"
+    else
+        # no se encuentra ningún derivado de debian, no se puede instalar
+        cleanScreen && echo -e "ERROR!! No se pueden instalar las dependencias en esta instancia... \n\n"
+    fi
+}
+
+# menu principal de la aplicación
+function mainApp() {
+
+    # menú principal
+    cleanScreen && titleScreen && echo -e "-- Seleccionar una opción -- \n"
+    while true; do
+
+        # setea el valor de $GLOBAL_INPUT_OPERAND
+        createMenuWithInputOperand "1) Gestionar recetas base\n2) Gestionar imágenes Docker\n3) Gestionar contenedores Docker\n4) Instalar dependencias servidor\n\n-- Pulsa 0 para salir del programa --"
+
+        # después de createMenu se crea la variable GLOBAL_INPUT_OPERAND
+        case $GLOBAL_INPUT_OPERAND in
+            [0]* )
+                # volver a atrás
+                cleanScreen && break
+                ;;
+            [1]* )
+
+                # cargar funciones de recetas
+                source "$DIR/src/recipe-functions"
+                
+                # crear carpetas remotas y de origen
+                menuRecipes
+                ;;
+
+            [2]* )
+                
+                # cargar funciones de docker
+                source "$DIR/src/docker-functions"
+
+                # necesita que esté docker en ejecución
+                isDockerEnable # return GLOBAL_DOCKER_ENABLE
+                if [ "$GLOBAL_DOCKER_ENABLE" = true ] ; then
+                    # cargar funciones de imágenes
+                    source "$DIR/src/image-functions"
+                    imagesMain
+                fi
+                ;;
+
+            [3]* )
+
+                # cargar funciones de docker
+                source "$DIR/src/docker-functions"
+
+                # necesita que esté docker en ejecución
+                isDockerEnable # return GLOBAL_DOCKER_ENABLE
+                if [ "$GLOBAL_DOCKER_ENABLE" = true ] ; then
+                    # cargar funciones de contenedores
+                    source "$DIR/src/container-functions"
+                    containerMain
+                fi
+                ;;
+
+            [4]* )
+
+                # instalar dependencias (por ahora sólo en servidores debian y derivados...)
+                isServerBasedDebianAndInstallDependencies
+                ;;
+
+            * )
+
+                echo -e "Seleccionar una opción válida..."
+                ;;
+                
+        esac
+    done
+}

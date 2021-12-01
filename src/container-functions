@@ -1,0 +1,162 @@
+#!/bin/bash
+
+# iniciar contenedor
+function startContainerByIdentifier() {
+    createMenuWithInputOperand "Indicar el nombre o  el ID del contenedor a iniciar "
+
+    if [[ $GLOBAL_INPUT_OPERAND != "" ]]; then
+        docker start $GLOBAL_INPUT_OPERAND
+    else
+        echo "Es necesario indicar el contenedor a iniciar"
+    fi
+}
+
+# ejecuta un contenedor docker (accede a el) vía it utilizando bash (siempre que el contenedor disponga de bash...)
+function containerExecByItWithBash() {
+
+    createMenuWithInputOperand "Indicar el nombre o  el ID del contenedor a acceder: "
+
+    if [[ $GLOBAL_INPUT_OPERAND != "" ]]; then
+        docker exec -it $GLOBAL_INPUT_OPERAND /bin/bash
+    else
+        echo "Es necesario indicar el contenedor a acceder"
+    fi
+
+}
+
+# detener contenedor a partir de un identificador (nombre o SHA)
+function stopContainerByIdentifier() {
+    createMenuWithInputOperand "indicar el nombre o el ID del contenedor a detener "
+    
+    if [[ $GLOBAL_INPUT_OPERAND != "" ]]; then
+        docker stop -t 0 $GLOBAL_INPUT_OPERAND
+    else
+        echo "No has indicado el nombre del contenedor"
+    fi
+}
+
+# eliminar contenedor
+function deleteContainerByIdentifier() {
+
+    createMenuWithInputOperand "Indicar el nombre o  el ID del contenedor a eliminar: "
+
+    if [[ $GLOBAL_INPUT_OPERAND != "" ]]; then
+        docker container rm $GLOBAL_INPUT_OPERAND
+    else
+        echo "Es necesario indicar el contenedor a eliminar"
+    fi
+}
+
+# renombrar contenedor
+function renameContainerByIdentifier() {
+
+    containerForRename=""
+    while [[ $containerForRename == "" ]]; do
+        read -p "Indicar el nombre del contenedor a renombrar: " containerForRename
+        if [[ $containerForRename == "" ]]; then
+            echo "Es necesario indicar el contenedor a renombrar"
+        fi
+    done
+
+    newContainerName=""
+    while [[ $newContainerName == "" ]]; do
+        read -p "Indicar el nuevo nombre del contenedor: " newContainerName
+        if [[ $newContainerName == "" ]]; then
+            echo "Es necesario indicar el nuevo nombre del contenedor"
+        fi
+    done
+
+    # renombrar el contenedor
+    docker rename $containerForRename $newContainerName
+    echo -e "\n"
+
+    # reiniciar variables
+    containerForRename=""
+    newContainerName=""
+
+}
+
+# crea un contenedor
+function createContainerRunningBackground() {
+
+    echo -e "Es necesario completar el nombre del contenedor, imagen, versión de la misma, puerto externo y puerto de redirección interna para continuar...\n"
+
+    isNotCompletedContainerAttributes=true
+    while $isNotCompletedContainerAttributes; do
+        if [[ "$containerName" != "" && "$imageName" != "" && "$imageVersion" != "" && "$externalPort" != "" && "$internalPort" != "" ]]; then
+            # si se han completado ambos campos, puede continuar
+            isNotCompletedContainerAttributes=false
+        else
+
+            read -p "indicar el nombre del contenedor (sin espacios, sólo guiones)  `echo $'\n> '`" containerName
+            read -p "indicar el nombre de la imagen de la que parte el contenedor `echo $'\n> '`" imageName
+            read -p "indicar versión de la imagen de la que parte el contenedor `echo $'\n> '`" imageVersion
+
+            read -p "indicar puerto de salida del servidor (redirección hacia el puerto interno del servidor) `echo $'\n> '`" externalPort
+            read -p "indicar puerto de escucha del contenedor (puerto interno) `echo $'\n> '`" internalPort
+
+            containerId=$(docker run -d -p $externalPort:$internalPort --name $containerName --restart always $imageName:$imageVersion)
+            echo -e "Creando contenedor con el ID $containerId \n"
+
+        fi
+    done
+
+    # en caso de que se vuelva a ejecutar
+    isNotCompletedContainerAttributes=true
+
+    # todo comprobar que el contenedor está iniciado para validar que todo ha ido bien
+
+    # reiniciar variables por si se vuelve a lanzar el programa
+    isNotCompletedContainerAttributes=true
+
+}
+
+# menú principal para gestionar contenedores
+function containerMain() {
+
+    echo -e "-- Seleccionar una opción -- \n"
+
+    while true; do
+
+        createMenuWithInputOperand "1) Listar contenedores\n2) Crear contenedor (en background)\n3) Acceder al contenedor\n4) Iniciar contenedor\n5) Detener contenedor\n6) Eliminar contenedor\n7) Renombrar contenedor\n\n-- Pulsa 0 para volver a atrás --"
+
+        # después de createMenu se crea la variable GLOBAL_INPUT_OPERAND
+        case $GLOBAL_INPUT_OPERAND in
+            [0]* )
+                cleanScreen && break
+                ;;
+            [1]* )
+                # lista todos los contenedores (activos e inactivos)
+                getDockerContainersList
+                ;;
+            [2]* )
+                # menú para crear contenedores
+                createContainerRunningBackground
+                ;;
+            [3]* ) 
+                # accede vía bash a un contenedor iniciado
+                containerExecByItWithBash
+                ;;
+            [4]* ) 
+                # inicia un contenedor inactivo
+                startContainerByIdentifier
+                ;;
+            [5]* )
+                # detiene un contenedor
+                stopContainerByIdentifier
+                ;;
+            [6]* )
+                # eliminar un contenedor (debe estar inactivo previamente)
+                deleteContainerByIdentifier
+                ;;
+            [7]* )
+                # renombrar un contenedor
+                renameContainerByIdentifier
+                ;;
+            * )
+                echo -e "Seleccionar una opción válida...";;
+        esac
+
+    done
+
+}

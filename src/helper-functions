@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# genera un menú y recoge una opción
+function createMenuWithInputOperand() {
+
+    if [[ $1 == "" ]]; then
+        echo -e "Bad menu construction\n" && exit
+    else
+        # recoge el dato del menú principal
+        echo -e "$1"
+        read -p "`echo $'\n> '`" GLOBAL_INPUT_OPERAND
+        echo -e "\n"
+    fi
+
+}
+
+function createMenuFromDirectory() {
+
+    dirs=($1)
+    noSelectedDirectory=true
+
+    while $noSelectedDirectory; do
+        read -p "$(
+
+                f=0
+                for dirname in "${dirs[@]}" ; do
+                    echo "$((++f))) $dirname"
+                done
+
+                echo -ne 'Selecciona un directorio del listado > '
+
+        )" selection
+
+        if [[ -d $selection ]]; then
+            echo "Haz seleccionado '$selection'"
+            noSelectedDirectory=false
+        else
+            echo "La selección no es correcta"
+        fi
+
+    done
+
+    # seleccionar el input global para continuar
+    GLOBAL_INPUT_OPERAND=selection
+
+}
+
+# limpia la pantalla
+function cleanScreen() { 
+    /usr/bin/clear; 
+}
+
+# pretty print path
+function prettyPrintPath() {
+    cd $1 && ls -R | grep ":$" | sed -e 's/:$//' -e 's/[^-][^\/]*\//--/g' -e 's/^/   /' -e 's/-/|/'
+}

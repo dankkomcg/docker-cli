@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# actualiza la versión de la etiqueta de un proyecto que esté sincronizado con un repositorio remoto
+function fetchRepositoryTag() {
+    
+    tagVersion=$1
+
+    # actualizamos todas la etiquetaas (asumiendo que estamos bajo el directorio del proyecto, lo cual no es responsabilidad de esta función)
+    git fetch --tags --all --force
+
+    # Verificamos que exite la etiqueta recibida como parametro
+    if ! git rev-parse "$tagVersion" >/dev/null 2>&1; then
+        echo "La version ${tagVersion} no existe";
+    fi
+
+    # actualizamos el directorio del repositorio a la etiqueta indicada
+    git checkout tags/"$tagVersion"
+
+}
+
+# descarga los datos desde un repositorio remoto
+function downloadRemoteRepository() {
+
+    # echo -e "Comprobar si existe el repositorio remoto"
+
+    # añadir clave ssh para instalar las dependencias privadas y actualizar el repo
+    # todo añadir
+    # eval $(ssh-agent) && ssh-add $DIR/ssh/key
+
+    # ambos valores deben tener valores para continuar
+    projectName=$1
+    recipeRemoteRepositoryNotDefined=true
+    # si existe, obligar a indicar un partido válido
+    while $recipeRemoteRepositoryNotDefined; do
+        if [[ "$gitRepository" != "" && "$projectName" != "" ]]; then
+            # si se han completado ambos campos, puede continuar
+            recipeRemoteRepositoryNotDefined=false
+        else
+            # solicitar la url del proyecto
+            read -p "Indicar url del repositorio remoto `echo $'\n> '`" gitRepository
+        fi
+    done
+
+    # reiniciar la variable para reutilizar al relanzar el programa
+    recipeRemoteRepositoryNotDefined=true
+
+    # variables repositorio
+    repository=$gitRepository
+    project=$projectName
+
+    # repositorios base: son los que configuramos junto al proyecto de docker, después hay que añadirlos al gitmodules para sincronizarlos
+    # git submodule add $repository recipes/remote/$project
+    git clone $repository $DIR/recipes/remote/$project
+
+}
